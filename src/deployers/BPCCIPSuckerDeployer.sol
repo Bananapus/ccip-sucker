@@ -7,8 +7,6 @@ import {IJBPrices} from "@bananapus/core/src/interfaces/IJBPrices.sol";
 import {IJBDirectory} from "@bananapus/core/src/interfaces/IJBDirectory.sol";
 import {IJBRulesets} from "@bananapus/core/src/interfaces/IJBRulesets.sol";
 import {IJBTokens} from "@bananapus/core/src/interfaces/IJBTokens.sol";
-import {OPStandardBridge} from "../interfaces/OPStandardBridge.sol";
-import {OPMessenger} from "../interfaces/OPMessenger.sol";
 import {BPCCIPSucker} from "../BPCCIPSucker.sol";
 import {BPAddToBalanceMode} from "../enums/BPAddToBalanceMode.sol";
 import {IBPSucker} from "./../interfaces/IBPSucker.sol";
@@ -27,12 +25,6 @@ contract BPCCIPSuckerDeployer is JBPermissioned, IBPSuckerDeployer {
 
     /// @notice Only this address can configure this deployer, can only be used once.
     address immutable LAYER_SPECIFIC_CONFIGURATOR;
-
-    /// @notice The messenger used to send messages between the local and remote sucker.
-    OPMessenger public MESSENGER;
-
-    /// @notice The bridge used to bridge tokens between the local and remote chain.
-    OPStandardBridge public BRIDGE;
 
     /// @notice A mapping of suckers deployed by this contract.
     mapping(address => bool) public isSucker;
@@ -73,13 +65,7 @@ contract BPCCIPSuckerDeployer is JBPermissioned, IBPSuckerDeployer {
     /// @notice handles some layer specific configuration that can't be done in the constructor otherwise deployment addresses would change.
     /// @notice messenger the OPMesssenger on this layer.
     /// @notice bridge the OPStandardBridge on this layer.
-    function configureLayerSpecific(OPMessenger messenger, OPStandardBridge bridge) external {
-        if (address(MESSENGER) != address(0) || address(BRIDGE) != address(0)) {
-            revert ALREADY_CONFIGURED();
-        }
-        // Configure these layer specific properties.
-        // This is done in a seperate call to make the deployment code chain agnostic.
-        MESSENGER = messenger;
-        BRIDGE = bridge;
+    function configureLayerSpecific() external {
+        // TODO: Update if necessary
     }
 }
