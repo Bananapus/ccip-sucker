@@ -266,6 +266,8 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
     /// @notice BPClaim project tokens which have been bridged from the remote chain for their beneficiary.
     /// @param claimData The terminal token, merkle tree leaf, and proof for the claim.
     function claim(BPClaim calldata claimData) public {
+        bool atbModeOnClaim = ADD_TO_BALANCE_MODE == BPAddToBalanceMode.ON_CLAIM ? true : false;
+
         // Attempt to validate the proof against the inbox tree for the terminal token.
         _validate({
             projectTokenAmount: claimData.leaf.projectTokenAmount,
@@ -278,7 +280,7 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
         });
 
         // If this contract's add to balance mode is `ON_CLAIM`, add the redeemed funds to the project's balance.
-        if (ADD_TO_BALANCE_MODE == BPAddToBalanceMode.ON_CLAIM) {
+        if (atbModeOnClaim) {
             _addToBalance(claimData.token, claimData.leaf.terminalTokenAmount);
         }
 
@@ -293,7 +295,7 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
             claimData.leaf.projectTokenAmount,
             claimData.leaf.terminalTokenAmount,
             claimData.leaf.index,
-            ADD_TO_BALANCE_MODE == BPAddToBalanceMode.ON_CLAIM ? true : false
+            atbModeOnClaim
         );
     }
 
