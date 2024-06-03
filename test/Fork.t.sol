@@ -44,14 +44,11 @@ contract CCIPSuckerFork is TestBaseWorkflow {
     JBRulesetMetadata private _metadata;
 
     CCIPLocalSimulatorFork public ccipLocalSimulatorFork;
-    BPCCIPSucker public suckerOne;
-    BPCCIPSucker public suckerTwo;
+    BPCCIPSucker public suckerGlobal;
     BurnMintERC677Helper public ccipBnM;
     BurnMintERC677Helper public ccipBnMArbSepolia;
-    IERC20 public linkToken;
-    address alice = makeAddr("alice");
     address sender = makeAddr("rootSender");
-    bytes32 SALT = "SUCKER";
+    /* bytes32 SALT = "SUCKER"; */
 
     uint256 sepoliaFork;
     uint256 arbSepoliaFork;
@@ -101,7 +98,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         super.setUp();
 
         // We deploy our first sucker
-        suckerOne = new BPCCIPSucker{salt: SALT}(jbDirectory(), jbTokens(), jbPermissions(), peer, atbMode);
+        suckerGlobal = new BPCCIPSucker{salt: "SUCKER"}(jbDirectory(), jbTokens(), jbPermissions(), peer, atbMode);
 
         // setup permissions
         vm.startPrank(multisig());
@@ -112,7 +109,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
 
         // permissions to set
         JBPermissionsData memory perms =
-            JBPermissionsData({operator: address(suckerOne), projectId: 1, permissionIds: ids});
+            JBPermissionsData({operator: address(suckerGlobal), projectId: 1, permissionIds: ids});
 
         // Allows our sucker to mint
         jbPermissions().setPermissionsFor(multisig(), perms);
@@ -192,7 +189,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         allowedChains[1] = ethSepoliaChainSelector;
 
         // Sucker one now allows our forked chains
-        suckerOne.setAllowedChains(allowedChains);
+        suckerGlobal.setAllowedChains(allowedChains);
 
         vm.stopPrank();
 
@@ -212,7 +209,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         deployCodeTo(
             "BPCCIPSucker.sol",
             abi.encode(jbDirectory(), jbTokens(), jbPermissions(), peer, atbMode),
-            address(suckerOne)
+            address(suckerGlobal)
         );
 
         // set permissions
@@ -249,7 +246,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
 
         jbPermissions().setPermissionsFor(multisig(), perms);
 
-        suckerOne.setAllowedChains(allowedChains);
+        suckerGlobal.setAllowedChains(allowedChains);
 
         vm.stopPrank();
 
@@ -280,7 +277,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         });
 
         vm.prank(multisig());
-        suckerOne.mapToken(map);
+        suckerGlobal.mapToken(map);
 
         // Let the terminal spend our test tokens so we can pay and receive project tokens
         vm.startPrank(user);
@@ -290,10 +287,10 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         uint256 projectTokenAmount = jbMultiTerminal().pay(1, address(ccipBnM), amountToSend, user, 0, "", "");
 
         // Approve the sucker to use those project tokens received by the user (we are still pranked as user)
-        IERC20(address(projectOneToken)).approve(address(suckerOne), projectTokenAmount);
+        IERC20(address(projectOneToken)).approve(address(suckerGlobal), projectTokenAmount);
 
         // Call prepare which uses our project tokens to retrieve (redeem) for our backing tokens (test token)
-        suckerOne.prepare(projectTokenAmount, user, maxRedeemed, address(ccipBnM), arbSepoliaChainSelector);
+        suckerGlobal.prepare(projectTokenAmount, user, maxRedeemed, address(ccipBnM), arbSepoliaChainSelector);
         vm.stopPrank();
 
         // Give the root sender some eth to pay the fees
@@ -302,7 +299,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
 
         // Initiates the bridging
         vm.prank(sender);
-        suckerOne.toRemote{value: 1 ether}(address(ccipBnM), arbSepoliaChainSelector);
+        suckerGlobal.toRemote{value: 1 ether}(address(ccipBnM), arbSepoliaChainSelector);
 
         // Fees are paid but balance isn't zero (excess msg.value is returned)
         assert(sender.balance < 1 ether);
@@ -312,11 +309,11 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         ccipLocalSimulatorFork.switchChainAndRouteMessage(arbSepoliaFork);
 
         // Check that the tokens were transferred
-        assertEq(ccipBnMArbSepolia.balanceOf(address(suckerOne)), maxRedeemed);
+        assertEq(ccipBnMArbSepolia.balanceOf(address(suckerGlobal)), maxRedeemed);
 
         // This is the most simple verification that messages are being sent and received though
         // Meaning CCIP transferred the data to our sucker on L2's inbox
-        BPInboxTreeRoot memory updatedInbox = suckerOne.getInbox(address(ccipBnMArbSepolia), ethSepoliaChainSelector);
+        BPInboxTreeRoot memory updatedInbox = suckerGlobal.getInbox(address(ccipBnMArbSepolia), ethSepoliaChainSelector);
         assertNotEq(updatedInbox.root, bytes32(0));
 
         // TODO: claim and clean this up
@@ -338,6 +335,6 @@ contract CCIPSuckerFork is TestBaseWorkflow {
             proof: _proof
         });
 
-        suckerOne.testClaim(_claimData);
+        suckerGlobal.testClaim(_claimData);
     }
 }

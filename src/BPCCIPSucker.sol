@@ -87,7 +87,6 @@ contract BPCCIPSucker is BPSucker {
         bytes32 _root = outbox[token][remoteSelector].tree.root();
         uint256 _index = outbox[token][remoteSelector].tree.count - 1;
 
-        // TODO: Handle ETH wrapping
         // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
         // address(0) means fees are paid in native gas
         Client.EVM2AnyMessage memory evm2AnyMessage = _buildCCIPMessage(
