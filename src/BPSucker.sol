@@ -64,6 +64,7 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
     error MANUAL_NOT_ALLOWED();
     error UNEXPECTED_MSG_VALUE();
     error WRAPPED_NATIVE_ONLY();
+    error NATIVE_ON_ETH_ONLY();
 
     //*********************************************************************//
     // ---------------------- public stored properties ------------------- //
@@ -349,7 +350,8 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
     function mapToken(BPTokenMapping calldata map) public ensureChainSupportedAndAllowed(map.remoteSelector) {
         address token = map.localToken;
         bool isNative = token == JBConstants.NATIVE_TOKEN;
-        address localWETH = CCIPHelper.wethOfChain(block.chainid);
+        uint256 chainId = block.chainid;
+        address localWETH = CCIPHelper.wethOfChain(chainId);
 
         uint64 remoteSelector = map.remoteSelector;
 
@@ -359,10 +361,11 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
             revert INVALID_TOKEN_TO_DESTINATION();
         }
 
-        // Remote destinations don't support unwrapping WETH.
-        if (map.remoteToken == JBConstants.NATIVE_TOKEN) {
-            revert WRAPPED_NATIVE_ONLY();
-        }
+        // Only support native backing token (and wrapping) if on Ethereum
+        if (chainId != 1 && isNative) revert NATIVE_ON_ETH_ONLY();
+
+        // Cannot bridge native tokens
+        if (map.remoteToken == JBConstants.NATIVE_TOKEN) revert WRAPPED_NATIVE_ONLY();
 
         // Enforce a reasonable minimum gas limit for bridging. A minimum which is too low could lead to the loss of funds.
         if (map.minGas < MESSENGER_ERC20_MIN_GAS_LIMIT) {
