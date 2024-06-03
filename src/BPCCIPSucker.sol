@@ -52,6 +52,7 @@ contract BPCCIPSucker is BPSucker {
 
     /// @notice Returns the chain on which the peer is located.
     /// @return chainId of the peer.
+    /// TODO: Check this, maybe remove from impl or return dummy info to keep interface the same.
     function peerChainID() external view virtual override returns (uint256 chainId) {}
 
     //*********************************************************************//
@@ -88,25 +89,24 @@ contract BPCCIPSucker is BPSucker {
         uint256 _index = outbox[token][remoteSelector].tree.count - 1;
 
         // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
-        // address(0) means fees are paid in native gas
-        Client.EVM2AnyMessage memory evm2AnyMessage = _buildCCIPMessage(
-            address(this),
-            BPMessageRoot({
+        Client.EVM2AnyMessage memory evm2AnyMessage = _buildCCIPMessage({
+            _receiver: address(this), // Global omni-chain address for BP-CCIP
+            _root: BPMessageRoot({
                 token: remoteToken.addr,
                 amount: amount,
                 remoteSelector: CCIPHelper.selectorOfChain(block.chainid),
                 remoteRoot: BPInboxTreeRoot({nonce: nonce, root: _root})
             }),
-            token,
-            amount,
-            address(0)
-        );
+            _token: token,
+            _amount: amount,
+            _feeTokenAddress: address(0) // Paid in native
+        });
 
         // Initialize a router client instance to interact with cross-chain router
         IRouterClient router = IRouterClient(this.getRouter());
 
         // Get the fee required to send the CCIP message
-        uint256 fees = router.getFee(remoteSelector, evm2AnyMessage);
+        uint256 fees = router.getFee({destinationChainSelector: remoteSelector, message: evm2AnyMessage});
 
         if (fees > transportPayment) {
             revert NotEnoughBalance(transportPayment, fees);
@@ -118,7 +118,7 @@ contract BPCCIPSucker is BPSucker {
         // TODO: Handle this messageId, maybe necessary
         // Send the message through the router and store the returned message ID
         /* messageId =  */
-        router.ccipSend{value: fees}(remoteSelector, evm2AnyMessage);
+        router.ccipSend{value: fees}({destinationChainSelector: remoteSelector, message: evm2AnyMessage});
 
         // TODO: Refund remaining balance.
         (bool sent,) = msg.sender.call{value: msg.value - fees}("");
@@ -169,7 +169,7 @@ contract BPCCIPSucker is BPSucker {
         IRouterClient router = IRouterClient(this.getRouter());
 
         // Get the fee required to send the CCIP message
-        return router.getFee(remoteSelector, evm2AnyMessage);
+        return router.getFee({destinationChainSelector: remoteSelector, message: evm2AnyMessage});
     }
 
     /// @notice Checks if the `sender` (`msg.sender`) is a valid representative of the remote peer.
