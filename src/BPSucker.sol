@@ -350,19 +350,17 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
     function mapToken(BPTokenMapping calldata map) public ensureChainSupportedAndAllowed(map.remoteSelector) {
         address token = map.localToken;
         bool isNative = token == JBConstants.NATIVE_TOKEN;
-        uint256 chainId = block.chainid;
-        address localWETH = CCIPHelper.wethOfChain(chainId);
-
         uint64 remoteSelector = map.remoteSelector;
-
-        address[] memory supportedForTransferList = ROUTER.getSupportedTokens(remoteSelector);
-
-        if (!_isTokenInList(supportedForTransferList, isNative ? localWETH : token)) {
-            revert INVALID_TOKEN_TO_DESTINATION();
-        }
+        uint256 chainId = block.chainid;
 
         // Only support native backing token (and wrapping) if on Ethereum
         if (chainId != 1 && isNative) revert NATIVE_ON_ETH_ONLY();
+
+        address[] memory supportedForTransferList = ROUTER.getSupportedTokens(remoteSelector);
+
+        if (!_isTokenInList(supportedForTransferList, isNative ? CCIPHelper.wethOfChain(chainId) : token)) {
+            revert INVALID_TOKEN_TO_DESTINATION();
+        }
 
         // Cannot bridge native tokens
         if (map.remoteToken == JBConstants.NATIVE_TOKEN) revert WRAPPED_NATIVE_ONLY();
