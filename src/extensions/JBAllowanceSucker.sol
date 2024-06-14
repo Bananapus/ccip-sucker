@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.21;
 
-import "./../BPSucker.sol";
+import "./../JBSucker.sol";
 
 import {IJBPayoutTerminal} from "@bananapus/core/src/interfaces/IJBPayoutTerminal.sol";
-import {IBPSuckerDeployerFeeless} from "../interfaces/IBPSuckerDeployerFeeless.sol";
+import {IJBSuckerDeployerFeeless} from "../interfaces/IJBSuckerDeployerFeeless.sol";
 import {JBAccountingContext} from "@bananapus/core/src/structs/JBAccountingContext.sol";
 
-abstract contract BPAllowanceSucker is BPSucker {
+abstract contract JBAllowanceSucker is JBSucker {
     /// @notice Redeems the project tokens for the redemption tokens.
     /// @param _projectToken the token to redeem.
     /// @param _amount the amount of project tokens to redeem.
@@ -50,7 +50,7 @@ abstract contract BPAllowanceSucker is BPSucker {
 
         // Get the balance before we redeem.
         uint256 _balanceBefore = _balanceOf(_token, address(this));
-        _receivedAmount = IBPSuckerDeployerFeeless(DEPLOYER).useAllowanceFeeless(
+        _receivedAmount = IJBSuckerDeployerFeeless(DEPLOYER).useAllowanceFeeless(
             PROJECT_ID,
             IJBPayoutTerminal(address(_terminal)),
             _token,

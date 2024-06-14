@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 /// @custom:member minGas The minimum gas to use when bridging.
 /// @custom:member addr The address of the token on the remote chain.
 /// @custom:member minBridgeAmount The minimum amount to bridge.
-struct BPRemoteToken {
+struct JBRemoteToken {
     uint32 minGas;
     address addr;
     uint256 minBridgeAmount;

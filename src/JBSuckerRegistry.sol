@@ -4,11 +4,11 @@ pragma solidity ^0.8.21;
 import {JBOwnable, IJBProjects, IJBPermissions} from "@bananapus/ownable/src/JBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids/src/JBPermissionIds.sol";
 import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
-import {IBPSucker} from "./interfaces/IBPSucker.sol";
-import {IBPSuckerRegistry} from "./interfaces/IBPSuckerRegistry.sol";
-import {BPSuckerDeployerConfig} from "./structs/BPSuckerDeployerConfig.sol";
+import {IJBSucker} from "./interfaces/IJBSucker.sol";
+import {IJBSuckerRegistry} from "./interfaces/IJBSuckerRegistry.sol";
+import {JBSuckerDeployerConfig} from "./structs/JBSuckerDeployerConfig.sol";
 
-contract BPSuckerRegistry is JBOwnable, IBPSuckerRegistry {
+contract JBSuckerRegistry is JBOwnable, IJBSuckerRegistry {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
 
     error INVALID_DEPLOYER(address deployer);
@@ -63,7 +63,7 @@ contract BPSuckerRegistry is JBOwnable, IBPSuckerRegistry {
     /// @param salt The salt used to deploy the contract. For the suckers to be peers, this must be the same value on each chain where suckers are deployed.
     /// @param configurations The sucker deployer configs to use to deploy the suckers.
     /// @return suckers The addresses of the deployed suckers.
-    function deploySuckersFor(uint256 projectId, bytes32 salt, BPSuckerDeployerConfig[] calldata configurations)
+    function deploySuckersFor(uint256 projectId, bytes32 salt, JBSuckerDeployerConfig[] calldata configurations)
         public
         override
         returns (address[] memory suckers)
@@ -89,7 +89,7 @@ contract BPSuckerRegistry is JBOwnable, IBPSuckerRegistry {
             }
 
             // Create the sucker.
-            IBPSucker sucker = configurations[i].deployer.createForSender({localProjectId: projectId, salt: salt});
+            IJBSucker sucker = configurations[i].deployer.createForSender({localProjectId: projectId, salt: salt});
             suckers[i] = address(sucker);
 
             // Store the sucker as being deployed for this project.

@@ -2,8 +2,8 @@
 pragma solidity 0.8.23;
 
 import {IWETH9} from "./interfaces/IWETH9.sol";
-import {IBPSucker} from "./interfaces/IBPSucker.sol";
-import {IBPSuckerDeployer} from "./interfaces/IBPSuckerDeployer.sol";
+import {IJBSucker} from "./interfaces/IJBSucker.sol";
+import {IJBSuckerDeployer} from "./interfaces/IJBSuckerDeployer.sol";
 import {IJBDirectory} from "@bananapus/core/src/interfaces/IJBDirectory.sol";
 import {IJBController} from "@bananapus/core/src/interfaces/IJBController.sol";
 import {IJBTokens} from "@bananapus/core/src/interfaces/IJBTokens.sol";
@@ -16,13 +16,13 @@ import {JBPermissionIds} from "@bananapus/permission-ids/src/JBPermissionIds.sol
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {BitMaps} from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 
-import {BPTokenMapping} from "./structs/BPTokenMapping.sol";
-import {BPRemoteToken} from "./structs/BPRemoteToken.sol";
-import {BPOutboxTree} from "./structs/BPOutboxTree.sol";
-import {BPInboxTreeRoot} from "./structs/BPInboxTreeRoot.sol";
-import {BPMessageRoot} from "./structs/BPMessageRoot.sol";
-import {BPClaim} from "./structs/BPClaim.sol";
-import {BPAddToBalanceMode} from "./enums/BPAddToBalanceMode.sol";
+import {JBTokenMapping} from "./structs/JBTokenMapping.sol";
+import {JBRemoteToken} from "./structs/JBRemoteToken.sol";
+import {JBOutboxTree} from "./structs/JBOutboxTree.sol";
+import {JBInboxTreeRoot} from "./structs/JBInboxTreeRoot.sol";
+import {JBMessageRoot} from "./structs/JBMessageRoot.sol";
+import {JBClaim} from "./structs/JBClaim.sol";
+import {JBAddToBalanceMode} from "./enums/JBAddToBalanceMode.sol";
 import {MerkleLib} from "./utils/MerkleLib.sol";
 
 import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
@@ -34,7 +34,7 @@ import {CCIPHelper} from "src/libraries/CCIPHelper.sol";
 /// @dev Beneficiaries and balances are tracked on two merkle trees: the outbox tree is used to send from the local chain to the remote chain, and the inbox tree is used to receive from the remote chain to the local chain.
 /// @dev Throughout this contract, "terminal token" refers to any token accepted by a project's terminal.
 /// @dev This contract does *NOT* support tokens that have a fee on regular transfers and rebasing tokens.
-abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
+abstract contract JBSucker is JBPermissioned, ModifiedReceiver, IJBSucker {
     using MerkleLib for MerkleLib.Tree;
     using BitMaps for BitMaps.BitMap;
     using SafeERC20 for IERC20;
@@ -73,16 +73,16 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
     IRouterClient public immutable ROUTER;
 
     /// @notice The outbox merkle tree for a given token.
-    mapping(address token => mapping(uint64 remoteSelector => BPOutboxTree)) public outbox;
+    mapping(address token => mapping(uint64 remoteSelector => JBOutboxTree)) public outbox;
 
     /// @notice The inbox merkle tree root for a given token.
-    mapping(address token => mapping(uint64 remoteSelector => BPInboxTreeRoot root)) public inbox;
+    mapping(address token => mapping(uint64 remoteSelector => JBInboxTreeRoot root)) public inbox;
 
     /// @notice The outstanding amount of tokens to be added to the project's balance by `claim` or `addOutstandingAmountToBalance`.
     mapping(address token => uint256 amount) public amountToAddToBalance;
 
     /// @notice Information about the token on the remote chain that the given token on the local chain is mapped to.
-    mapping(address token => BPRemoteToken remoteToken) public remoteTokenFor;
+    mapping(address token => JBRemoteToken remoteToken) public remoteTokenFor;
 
     /// @notice The chain selectors that are compatible as configured by the project.
     mapping(uint64 chainSelector => bool isAllowed) public isChainAllowed;
@@ -92,7 +92,7 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
     //*********************************************************************//
 
     /// @notice Whether the `amountToAddToBalance` gets added to the project's balance automatically when `claim` is called or manually by calling `addOutstandingAmountToBalance`.
-    BPAddToBalanceMode public immutable ADD_TO_BALANCE_MODE;
+    JBAddToBalanceMode public immutable ADD_TO_BALANCE_MODE;
 
     /// @notice The directory of terminals and controllers for projects.
     IJBDirectory public immutable DIRECTORY;
@@ -131,12 +131,12 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
         IJBTokens tokens,
         IJBPermissions permissions,
         address peer,
-        BPAddToBalanceMode atbMode
+        JBAddToBalanceMode atbMode
     ) JBPermissioned(permissions) {
         DIRECTORY = directory;
         TOKENS = tokens;
         PEER = peer == address(0) ? address(this) : peer;
-        PROJECT_ID = 1; // TODO: fix this after we make a SuckerDeployer for CCIP /* IBPSuckerDeployer(msg.sender).TEMP_ID_STORE() */;
+        PROJECT_ID = 1; // TODO: fix this after we make a SuckerDeployer for CCIP /* IJBSuckerDeployer(msg.sender).TEMP_ID_STORE() */;
         DEPLOYER = msg.sender;
         ADD_TO_BALANCE_MODE = atbMode;
         ROUTER = IRouterClient(CCIPHelper.routerOfChain(block.chainid));
@@ -218,7 +218,7 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
         payable
         ensureChainSupportedAndAllowed(chainSelector)
     {
-        BPRemoteToken memory remoteToken = remoteTokenFor[token];
+        JBRemoteToken memory remoteToken = remoteTokenFor[token];
 
         // Ensure that the amount being bridged exceeds the minimum bridge amount.
         if (outbox[token][chainSelector].balance < remoteToken.minBridgeAmount) {
@@ -244,7 +244,7 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
 
     function _ccipReceive(Client.Any2EVMMessage memory any2EvmMessage) internal override {
         // Decode the message root from the peer
-        BPMessageRoot memory root = abi.decode(any2EvmMessage.data, (BPMessageRoot));
+        JBMessageRoot memory root = abi.decode(any2EvmMessage.data, (JBMessageRoot));
         address origin = abi.decode(any2EvmMessage.sender, (address));
 
         // Make sure that the message came from our peer.
@@ -264,10 +264,10 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
         }
     }
 
-    /// @notice BPClaim project tokens which have been bridged from the remote chain for their beneficiary.
+    /// @notice JBClaim project tokens which have been bridged from the remote chain for their beneficiary.
     /// @param claimData The terminal token, merkle tree leaf, and proof for the claim.
-    function claim(BPClaim calldata claimData) public {
-        bool atbModeOnClaim = ADD_TO_BALANCE_MODE == BPAddToBalanceMode.ON_CLAIM ? true : false;
+    function claim(JBClaim calldata claimData) public {
+        bool atbModeOnClaim = ADD_TO_BALANCE_MODE == JBAddToBalanceMode.ON_CLAIM ? true : false;
 
         // Attempt to validate the proof against the inbox tree for the terminal token.
         _validate({
@@ -300,14 +300,14 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
         );
     }
 
-    /// @notice BPClaim project tokens which have been bridged from the remote chain for their beneficiary.
+    /// @notice JBClaim project tokens which have been bridged from the remote chain for their beneficiary.
     /// @param claimData The terminal token, merkle tree leaf, and proof for the claim.
-    function testClaim(BPClaim calldata claimData) public {
+    function testClaim(JBClaim calldata claimData) public {
         /// TODO: REMOVE TEST FUNCTION BEFORE PROD
         /// THIS FUNCTION SKIPS PROOF VALIDATION
 
         // If this contract's add to balance mode is `ON_CLAIM`, add the redeemed funds to the project's balance.
-        if (ADD_TO_BALANCE_MODE == BPAddToBalanceMode.ON_CLAIM) {
+        if (ADD_TO_BALANCE_MODE == JBAddToBalanceMode.ON_CLAIM) {
             _addToBalance(claimData.token, claimData.leaf.terminalTokenAmount);
         }
 
@@ -322,13 +322,13 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
             claimData.leaf.projectTokenAmount,
             claimData.leaf.terminalTokenAmount,
             claimData.leaf.index,
-            ADD_TO_BALANCE_MODE == BPAddToBalanceMode.ON_CLAIM ? true : false
+            ADD_TO_BALANCE_MODE == JBAddToBalanceMode.ON_CLAIM ? true : false
         );
     }
 
     /// @notice Performs multiple claims.
     /// @param claims A list of claims to perform (including the terminal token, merkle tree leaf, and proof for each claim).
-    function claim(BPClaim[] calldata claims) external {
+    function claim(JBClaim[] calldata claims) external {
         for (uint256 i = 0; i < claims.length; i++) {
             claim(claims[i]);
         }
@@ -337,7 +337,7 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
     /// @notice Adds the redeemed `token` balance to the projects terminal. Can only be used if `ADD_TO_BALANCE_MODE` is `MANUAL`.
     /// @param token The address of the terminal token to add to the project's balance.
     function addOutstandingAmountToBalance(address token) external {
-        if (ADD_TO_BALANCE_MODE != BPAddToBalanceMode.MANUAL) {
+        if (ADD_TO_BALANCE_MODE != JBAddToBalanceMode.MANUAL) {
             revert MANUAL_NOT_ALLOWED();
         }
 
@@ -347,7 +347,7 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
 
     /// @notice Map an ERC-20 token on the local chain to an ERC-20 token on the remote chain, allowing that token to be bridged.
     /// @param map The local and remote terminal token addresses to map, and minimum amount/gas limits for bridging them.
-    function mapToken(BPTokenMapping calldata map) public ensureChainSupportedAndAllowed(map.remoteSelector) {
+    function mapToken(JBTokenMapping calldata map) public ensureChainSupportedAndAllowed(map.remoteSelector) {
         address token = map.localToken;
         bool isNative = token == JBConstants.NATIVE_TOKEN;
         uint256 chainId = block.chainid;
@@ -382,12 +382,12 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
 
         // Update the token mapping.
         remoteTokenFor[token] =
-            BPRemoteToken({minGas: map.minGas, addr: map.remoteToken, minBridgeAmount: map.minBridgeAmount});
+            JBRemoteToken({minGas: map.minGas, addr: map.remoteToken, minBridgeAmount: map.minBridgeAmount});
     }
 
     /// @notice Map multiple ERC-20 tokens on the local chain to ERC-20 tokens on the remote chain, allowing those tokens to be bridged.
     /// @param maps A list of local and remote terminal token addresses to map, and minimum amount/gas limits for bridging them.
-    function mapTokens(BPTokenMapping[] calldata maps) external {
+    function mapTokens(JBTokenMapping[] calldata maps) external {
         for (uint256 i = 0; i < maps.length; i++) {
             mapToken(maps[i]);
         }
@@ -467,7 +467,7 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
     /// @param transportPayment the amount of `msg.value` that is going to get paid for sending this message. (usually derived from `msg.value`)
     /// @param token The terminal token to bridge the merkle tree of.
     /// @param remoteToken The remote token which the `token` is mapped to.
-    function _sendRoot(uint256 transportPayment, address token, BPRemoteToken memory remoteToken, uint64 chainSelector)
+    function _sendRoot(uint256 transportPayment, address token, JBRemoteToken memory remoteToken, uint64 chainSelector)
         internal
         virtual;
 
@@ -617,7 +617,7 @@ abstract contract BPSucker is JBPermissioned, ModifiedReceiver, IBPSucker {
         return IERC20(token).balanceOf(addr);
     }
 
-    function getInbox(address token, uint64 chainSelector) external view returns (BPInboxTreeRoot memory) {
+    function getInbox(address token, uint64 chainSelector) external view returns (JBInboxTreeRoot memory) {
         return inbox[token][chainSelector];
     }
 }
