@@ -7,13 +7,13 @@ import {IJBPrices} from "@bananapus/core/src/interfaces/IJBPrices.sol";
 import {IJBDirectory} from "@bananapus/core/src/interfaces/IJBDirectory.sol";
 import {IJBRulesets} from "@bananapus/core/src/interfaces/IJBRulesets.sol";
 import {IJBTokens} from "@bananapus/core/src/interfaces/IJBTokens.sol";
-import {BPCCIPSucker} from "../BPCCIPSucker.sol";
-import {BPAddToBalanceMode} from "../enums/BPAddToBalanceMode.sol";
-import {IBPSucker} from "./../interfaces/IBPSucker.sol";
-import {IBPSuckerDeployer} from "./../interfaces/IBPSuckerDeployer.sol";
+import {JBCCIPSucker} from "../JBCCIPSucker.sol";
+import {JBAddToBalanceMode} from "../enums/JBAddToBalanceMode.sol";
+import {IJBSucker} from "./../interfaces/IJBSucker.sol";
+import {IJBSuckerDeployer} from "./../interfaces/IJBSuckerDeployer.sol";
 
-/// @notice An `IBPSuckerDeployerFeeless` implementation to deploy `BPOptimismSucker` contracts.
-contract BPCCIPSuckerDeployer is JBPermissioned, IBPSuckerDeployer {
+/// @notice An `IJBSuckerDeployerFeeless` implementation to deploy `BPOptimismSucker` contracts.
+contract JBCCIPSuckerDeployer is JBPermissioned, IJBSuckerDeployer {
     error ONLY_SUCKERS();
     error ALREADY_CONFIGURED();
 
@@ -40,19 +40,19 @@ contract BPCCIPSuckerDeployer is JBPermissioned, IBPSuckerDeployer {
         TOKENS = tokens;
     }
 
-    /// @notice Create a new `BPSucker` for a specific project.
+    /// @notice Create a new `JBSucker` for a specific project.
     /// @dev Uses the sender address as the salt, which means the same sender must call this function on both chains.
     /// @param localProjectId The project's ID on the local chain.
     /// @param salt The salt to use for the `create2` address.
     /// @return sucker The address of the new sucker.
-    function createForSender(uint256 localProjectId, bytes32 salt) external returns (IBPSucker sucker) {
+    function createForSender(uint256 localProjectId, bytes32 salt) external returns (IJBSucker sucker) {
         salt = keccak256(abi.encodePacked(msg.sender, salt));
 
         // Set for a callback to this contract.
         TEMP_ID_STORE = localProjectId;
 
-        sucker = IBPSucker(
-            address(new BPCCIPSucker{salt: salt}(DIRECTORY, TOKENS, PERMISSIONS, address(0), BPAddToBalanceMode.MANUAL))
+        sucker = IJBSucker(
+            address(new JBCCIPSucker{salt: salt}(DIRECTORY, TOKENS, PERMISSIONS, address(0), JBAddToBalanceMode.MANUAL))
         );
 
         // TODO: See if resetting this value is cheaper than deletion

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {BPLeaf} from "./BPLeaf.sol";
+import {JBLeaf} from "./JBLeaf.sol";
 
-struct BPClaim {
+struct JBClaim {
     address token;
     uint64 remoteSelector;
-    BPLeaf leaf;
-    // Must be `BPSucker.TREE_DEPTH` long.
+    JBLeaf leaf;
+    // Must be `JBSucker.TREE_DEPTH` long.
     bytes32[32] proof;
 }

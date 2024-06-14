@@ -11,11 +11,11 @@ import {IJBTokens} from "@bananapus/core/src/interfaces/IJBTokens.sol";
 import {IJBPermissions} from "@bananapus/core/src/interfaces/IJBPermissions.sol";
 import {JBConstants} from "@bananapus/core/src/libraries/JBConstants.sol";
 
-import {BPSucker, BPAddToBalanceMode} from "./BPSucker.sol";
-import {BPMessageRoot} from "./structs/BPMessageRoot.sol";
-import {BPRemoteToken} from "./structs/BPRemoteToken.sol";
-import {BPInboxTreeRoot} from "./structs/BPInboxTreeRoot.sol";
-import {BPCCIPSuckerDeployer} from "./deployers/BPCCIPSuckerDeployer.sol";
+import {JBSucker, JBAddToBalanceMode} from "./JBSucker.sol";
+import {JBMessageRoot} from "./structs/JBMessageRoot.sol";
+import {JBRemoteToken} from "./structs/JBRemoteToken.sol";
+import {JBInboxTreeRoot} from "./structs/JBInboxTreeRoot.sol";
+import {JBCCIPSuckerDeployer} from "./deployers/JBCCIPSuckerDeployer.sol";
 import {MerkleLib} from "./utils/MerkleLib.sol";
 
 import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
@@ -23,8 +23,8 @@ import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/
 
 import {CCIPHelper} from "src/libraries/CCIPHelper.sol";
 
-/// @notice A `BPSucker` implementation to suck tokens between chains with Chainlink CCIP
-contract BPCCIPSucker is BPSucker {
+/// @notice A `JBSucker` implementation to suck tokens between chains with Chainlink CCIP
+contract JBCCIPSucker is JBSucker {
     using MerkleLib for MerkleLib.Tree;
     using BitMaps for BitMaps.BitMap;
 
@@ -43,8 +43,8 @@ contract BPCCIPSucker is BPSucker {
         IJBTokens tokens,
         IJBPermissions permissions,
         address peer,
-        BPAddToBalanceMode atbMode
-    ) BPSucker(directory, tokens, permissions, peer, atbMode) {}
+        JBAddToBalanceMode atbMode
+    ) JBSucker(directory, tokens, permissions, peer, atbMode) {}
 
     //*********************************************************************//
     // ------------------------ external views --------------------------- //
@@ -63,7 +63,7 @@ contract BPCCIPSucker is BPSucker {
     /// @param transportPayment the amount of `msg.value` that is going to get paid for sending this message.
     /// @param token The token to bridge the outbox tree for.
     /// @param remoteToken Information about the remote token being bridged to.
-    function _sendRoot(uint256 transportPayment, address token, BPRemoteToken memory remoteToken, uint64 remoteSelector)
+    function _sendRoot(uint256 transportPayment, address token, JBRemoteToken memory remoteToken, uint64 remoteSelector)
         internal
         override
     {
@@ -91,11 +91,11 @@ contract BPCCIPSucker is BPSucker {
         // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
         Client.EVM2AnyMessage memory evm2AnyMessage = _buildCCIPMessage({
             _receiver: address(this), // Global omni-chain address for BP-CCIP
-            _root: BPMessageRoot({
+            _root: JBMessageRoot({
                 token: remoteToken.addr,
                 amount: amount,
                 remoteSelector: CCIPHelper.selectorOfChain(block.chainid),
-                remoteRoot: BPInboxTreeRoot({nonce: nonce, root: _root})
+                remoteRoot: JBInboxTreeRoot({nonce: nonce, root: _root})
             }),
             _token: token,
             _amount: amount,
@@ -138,7 +138,7 @@ contract BPCCIPSucker is BPSucker {
     /// @return Client.EVM2AnyMessage Returns an EVM2AnyMessage struct which contains information for sending a CCIP message.
     function _buildCCIPMessage(
         address _receiver,
-        BPMessageRoot memory _root,
+        JBMessageRoot memory _root,
         address _token,
         uint256 _amount,
         address _feeTokenAddress

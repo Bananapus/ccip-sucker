@@ -3,8 +3,8 @@ pragma solidity 0.8.23;
 
 import /* {*} from */ "@bananapus/core/test/helpers/TestBaseWorkflow.sol";
 import {MockPriceFeed} from "@bananapus/core/test/mock/MockPriceFeed.sol";
-import {IBPSucker} from "../src/interfaces/IBPSucker.sol";
-import {IBPSuckerDeployer} from "../src/interfaces/IBPSuckerDeployer.sol";
+import {IJBSucker} from "../src/interfaces/IJBSucker.sol";
+import {IJBSuckerDeployer} from "../src/interfaces/IJBSuckerDeployer.sol";
 import {IJBDirectory} from "@bananapus/core/src/interfaces/IJBDirectory.sol";
 import {IJBController} from "@bananapus/core/src/interfaces/IJBController.sol";
 import {IJBTokens} from "@bananapus/core/src/interfaces/IJBTokens.sol";
@@ -17,22 +17,22 @@ import {IJBPermissions} from "@bananapus/core/src/interfaces/IJBPermissions.sol"
 import {JBPermissionIds} from "@bananapus/permission-ids/src/JBPermissionIds.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {BPTokenMapping} from "../src/structs/BPTokenMapping.sol";
-import {BPRemoteToken} from "../src/structs/BPRemoteToken.sol";
-import {BPOutboxTree} from "../src/structs/BPOutboxTree.sol";
-import {BPInboxTreeRoot} from "../src/structs/BPInboxTreeRoot.sol";
-import {BPMessageRoot} from "../src/structs/BPMessageRoot.sol";
-import {BPClaim} from "../src/structs/BPClaim.sol";
-import {BPAddToBalanceMode} from "../src/enums/BPAddToBalanceMode.sol";
+import {JBTokenMapping} from "../src/structs/JBTokenMapping.sol";
+import {JBRemoteToken} from "../src/structs/JBRemoteToken.sol";
+import {JBOutboxTree} from "../src/structs/JBOutboxTree.sol";
+import {JBInboxTreeRoot} from "../src/structs/JBInboxTreeRoot.sol";
+import {JBMessageRoot} from "../src/structs/JBMessageRoot.sol";
+import {JBClaim} from "../src/structs/JBClaim.sol";
+import {JBAddToBalanceMode} from "../src/enums/JBAddToBalanceMode.sol";
 import {MerkleLib} from "../src/utils/MerkleLib.sol";
 
 import "forge-std/Test.sol";
-import {BPCCIPSucker} from "../src/BPCCIPSucker.sol";
+import {JBCCIPSucker} from "../src/JBCCIPSucker.sol";
 import {BurnMintERC677Helper} from "@chainlink/local/src/ccip/CCIPLocalSimulator.sol";
 import {CCIPLocalSimulatorFork, Register} from "@chainlink/local/src/ccip/CCIPLocalSimulatorFork.sol";
 
-import {BPClaim} from "../src/structs/BPClaim.sol";
-import {BPLeaf} from "../src/structs/BPClaim.sol";
+import {JBClaim} from "../src/structs/JBClaim.sol";
+import {JBLeaf} from "../src/structs/JBClaim.sol";
 import {MerkleLib} from "../src/utils/MerkleLib.sol";
 
 contract CCIPSuckerFork is TestBaseWorkflow {
@@ -44,7 +44,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
     JBRulesetMetadata private _metadata;
 
     CCIPLocalSimulatorFork public ccipLocalSimulatorFork;
-    BPCCIPSucker public suckerGlobal;
+    JBCCIPSucker public suckerGlobal;
     BurnMintERC677Helper public ccipBnM;
     BurnMintERC677Helper public ccipBnMArbSepolia;
     address sender = makeAddr("rootSender");
@@ -61,7 +61,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
     function setUp() public override {
         // address(0) == peer is the same as address(this) - this being the sucker itself
         address peer = address(0);
-        BPAddToBalanceMode atbMode = BPAddToBalanceMode.ON_CLAIM;
+        JBAddToBalanceMode atbMode = JBAddToBalanceMode.ON_CLAIM;
 
         string memory ETHEREUM_SEPOLIA_RPC_URL = vm.envString("RPC_ETHEREUM_SEPOLIA");
         string memory ARBITRUM_SEPOLIA_RPC_URL = vm.envString("RPC_ARBITRUM_SEPOLIA");
@@ -98,7 +98,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         super.setUp();
 
         // We deploy our first sucker
-        suckerGlobal = new BPCCIPSucker{salt: "SUCKER"}(jbDirectory(), jbTokens(), jbPermissions(), peer, atbMode);
+        suckerGlobal = new JBCCIPSucker{salt: "SUCKER"}(jbDirectory(), jbTokens(), jbPermissions(), peer, atbMode);
 
         // setup permissions
         vm.startPrank(multisig());
@@ -207,7 +207,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         // We instead use this cheatcode to deploy what is essentially "Sucker Two" to the same address,
         // But on our other fork
         deployCodeTo(
-            "BPCCIPSucker.sol",
+            "JBCCIPSucker.sol",
             abi.encode(jbDirectory(), jbTokens(), jbPermissions(), peer, atbMode),
             address(suckerGlobal)
         );
@@ -268,7 +268,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         ccipBnM.drip(address(user));
 
         // Map the token
-        BPTokenMapping memory map = BPTokenMapping({
+        JBTokenMapping memory map = JBTokenMapping({
             localToken: address(ccipBnM),
             minGas: 200_000,
             remoteToken: address(ccipBnMArbSepolia),
@@ -294,7 +294,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         vm.stopPrank();
 
         // Give the root sender some eth to pay the fees
-        // TODO: return excess amounts in BPCCIPSucker
+        // TODO: return excess amounts in JBCCIPSucker
         vm.deal(sender, 1 ether);
 
         // Initiates the bridging
@@ -313,13 +313,13 @@ contract CCIPSuckerFork is TestBaseWorkflow {
 
         // This is the most simple verification that messages are being sent and received though
         // Meaning CCIP transferred the data to our sucker on L2's inbox
-        BPInboxTreeRoot memory updatedInbox = suckerGlobal.getInbox(address(ccipBnMArbSepolia), ethSepoliaChainSelector);
+        JBInboxTreeRoot memory updatedInbox = suckerGlobal.getInbox(address(ccipBnMArbSepolia), ethSepoliaChainSelector);
         assertNotEq(updatedInbox.root, bytes32(0));
 
         // TODO: claim and clean this up
 
         // Setup claim data
-        BPLeaf memory _leaf = BPLeaf({
+        JBLeaf memory _leaf = JBLeaf({
             index: 1,
             beneficiary: user,
             projectTokenAmount: projectTokenAmount,
@@ -328,7 +328,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
 
         bytes32[32] memory _proof;
 
-        BPClaim memory _claimData = BPClaim({
+        JBClaim memory _claimData = JBClaim({
             token: address(ccipBnMArbSepolia),
             remoteSelector: ethSepoliaChainSelector,
             leaf: _leaf,
