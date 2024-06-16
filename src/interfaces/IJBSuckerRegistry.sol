@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.21;
 
-import {BPSuckerDeployerConfig} from "../structs/BPSuckerDeployerConfig.sol";
+import {JBSuckerDeployerConfig} from "../structs/JBSuckerDeployerConfig.sol";
 
-interface IBPSuckerRegistry {
+interface IJBSuckerRegistry {
     event SuckerDeployerAllowed(address deployer);
     event SuckersDeployedFor(uint256 projectId, address[] suckers);
 
@@ -12,7 +12,7 @@ interface IBPSuckerRegistry {
     function suckerDeployerIsAllowed(address deployer) external view returns (bool);
 
     function allowSuckerDeployer(address deployer) external;
-    function deploySuckersFor(uint256 projectId, bytes32 salt, BPSuckerDeployerConfig[] memory configurations)
+    function deploySuckersFor(uint256 projectId, bytes32 salt, JBSuckerDeployerConfig[] memory configurations)
         external
         returns (address[] memory suckers);
 }

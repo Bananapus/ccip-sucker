@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IBPSuckerDeployer} from "./IBPSuckerDeployer.sol";
+import {IJBSuckerDeployer} from "./IJBSuckerDeployer.sol";
 import {IJBPayoutTerminal} from "@bananapus/core/src/interfaces/IJBPayoutTerminal.sol";
 
-interface IBPSuckerDeployerFeeless is IBPSuckerDeployer {
+interface IJBSuckerDeployerFeeless is IJBSuckerDeployer {
     function useAllowanceFeeless(
         uint256 projectId,
         IJBPayoutTerminal terminal,
