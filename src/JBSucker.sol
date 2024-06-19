@@ -109,12 +109,6 @@ abstract contract JBSucker is JBPermissioned, ModifiedReceiver, IJBSucker {
     /// @notice The ID of the project (on the local chain) that this sucker is associated with.
     uint256 public immutable PROJECT_ID;
 
-    /// @notice A reasonable minimum gas limit for a basic cross-chain call. The minimum amount of gas required to call the `fromRemote` (succesfully/safely) on the remote chain.
-    uint32 constant MESSENGER_BASE_GAS_LIMIT = 300_000;
-
-    /// @notice A reasonable minimum gas limit used when bridging ERC-20s. The minimum amount of gas required to (succesfully/safely) perform a transfer on the remote chain.
-    uint32 constant MESSENGER_ERC20_MIN_GAS_LIMIT = 200_000;
-
     //*********************************************************************//
     // -------------------- internal stored properties ------------------- //
     //*********************************************************************//
@@ -366,8 +360,8 @@ abstract contract JBSucker is JBPermissioned, ModifiedReceiver, IJBSucker {
         if (map.remoteToken == JBConstants.NATIVE_TOKEN) revert WRAPPED_NATIVE_ONLY();
 
         // Enforce a reasonable minimum gas limit for bridging. A minimum which is too low could lead to the loss of funds.
-        if (map.minGas < MESSENGER_ERC20_MIN_GAS_LIMIT) {
-            revert BELOW_MIN_GAS(MESSENGER_ERC20_MIN_GAS_LIMIT, map.minGas);
+        if (map.minGas < 200_000) {
+            revert BELOW_MIN_GAS(200_000, map.minGas);
         }
 
         // The caller must be the project owner or have the `MAP_SUCKER_TOKEN` permission from them.
@@ -393,7 +387,6 @@ abstract contract JBSucker is JBPermissioned, ModifiedReceiver, IJBSucker {
 
     function setAllowedChain(uint64 chainSelector) public {
         // The caller must be the project owner or have the `MAP_SUCKER_TOKEN` permission from them.
-        // TODO: New permission in nana-permissions for this
         _requirePermissionFrom(DIRECTORY.PROJECTS().ownerOf(PROJECT_ID), PROJECT_ID, JBPermissionIds.MAP_SUCKER_TOKEN);
 
         isChainAllowed[chainSelector] = true;
