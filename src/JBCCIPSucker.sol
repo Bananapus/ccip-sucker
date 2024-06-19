@@ -43,15 +43,6 @@ contract JBCCIPSucker is JBSucker {
     {}
 
     //*********************************************************************//
-    // ------------------------ external views --------------------------- //
-    //*********************************************************************//
-
-    /// @notice Returns the chain on which the peer is located.
-    /// @return chainId of the peer.
-    /// TODO: Check this, maybe remove from impl or return dummy info to keep interface the same.
-    function peerChainID() external view virtual override returns (uint256 chainId) {}
-
-    //*********************************************************************//
     // --------------------- internal transactions ----------------------- //
     //*********************************************************************//
 
@@ -63,7 +54,6 @@ contract JBCCIPSucker is JBSucker {
         internal
         override
     {
-        // TODO: Require transportPayment, CCIP expects to be paid
         if (transportPayment == 0) {
             revert UNEXPECTED_MSG_VALUE();
         }
@@ -76,7 +66,6 @@ contract JBCCIPSucker is JBSucker {
         uint64 nonce = ++outbox[token][remoteSelector].nonce;
 
         // Ensure the token is mapped to an address on the remote chain.
-        // TODO: re-enable
         if (remoteToken.addr == address(0)) {
             revert TOKEN_NOT_MAPPED(token);
         }
@@ -116,7 +105,7 @@ contract JBCCIPSucker is JBSucker {
         /* messageId =  */
         router.ccipSend{value: fees}({destinationChainSelector: remoteSelector, message: evm2AnyMessage});
 
-        // TODO: Refund remaining balance.
+        // Refund remaining balance.
         (bool sent,) = msg.sender.call{value: msg.value - fees}("");
         if (!sent) revert FailedToRefundFee();
 

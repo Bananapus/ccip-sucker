@@ -402,10 +402,6 @@ abstract contract JBSucker is JBPermissioned, ModifiedReceiver, IJBSucker {
         return remoteTokenFor[token].addr != address(0);
     }
 
-    /// @notice Returns the chain on which the peer is located.
-    /// @return chain ID of the peer.
-    function peerChainID() external view virtual returns (uint256);
-
     //*********************************************************************//
     // --------------------- internal transactions ----------------------- //
     //*********************************************************************//
