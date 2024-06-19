@@ -56,8 +56,9 @@ contract CCIPSuckerForkedTests is TestBaseWorkflow {
     uint64 ethSepoliaChainSelector = 16015286601757825753;
 
     // RPCs
-    string ETHEREUM_SEPOLIA_RPC_URL = vm.envString("RPC_ETHEREUM_SEPOLIA");
-    string ARBITRUM_SEPOLIA_RPC_URL = vm.envString("RPC_ARBITRUM_SEPOLIA");
+    string ETHEREUM_SEPOLIA_RPC_URL = vm.envOr("RPC_ETHEREUM_SEPOLIA", string("https://1rpc.io/sepolia"));
+    string ARBITRUM_SEPOLIA_RPC_URL =
+        vm.envOr("RPC_ARBITRUM_SEPOLIA", string("https://endpoints.omniatech.io/v1/arbitrum/sepolia/public"));
 
     //*********************************************************************//
     // ---------------------------- Setup parts -------------------------- //
