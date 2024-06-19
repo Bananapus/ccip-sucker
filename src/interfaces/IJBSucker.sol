@@ -4,8 +4,6 @@ pragma solidity ^0.8.0;
 import {JBTokenMapping} from "../structs/JBTokenMapping.sol";
 
 interface IJBSucker {
-    function PEER() external view returns (address);
-
     function peerChainID() external view returns (uint256 chainId);
 
     function isMapped(address token) external view returns (bool);

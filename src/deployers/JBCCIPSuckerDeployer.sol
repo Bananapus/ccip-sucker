@@ -51,9 +51,8 @@ contract JBCCIPSuckerDeployer is JBPermissioned, IJBSuckerDeployer {
         // Set for a callback to this contract.
         TEMP_ID_STORE = localProjectId;
 
-        sucker = IJBSucker(
-            address(new JBCCIPSucker{salt: salt}(DIRECTORY, TOKENS, PERMISSIONS, address(0), JBAddToBalanceMode.MANUAL))
-        );
+        sucker =
+            IJBSucker(address(new JBCCIPSucker{salt: salt}(DIRECTORY, TOKENS, PERMISSIONS, JBAddToBalanceMode.MANUAL)));
 
         // TODO: See if resetting this value is cheaper than deletion
         // Delete after callback should complete.

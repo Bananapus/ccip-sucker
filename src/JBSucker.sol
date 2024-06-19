@@ -103,9 +103,6 @@ abstract contract JBSucker is JBPermissioned, ModifiedReceiver, IJBSucker {
     /// @notice The address of this contract's deployer.
     address public immutable DEPLOYER;
 
-    /// @notice The peer sucker on the remote chain.
-    address public immutable override PEER;
-
     /// @notice The ID of the project (on the local chain) that this sucker is associated with.
     uint256 public immutable PROJECT_ID;
 
@@ -120,16 +117,11 @@ abstract contract JBSucker is JBPermissioned, ModifiedReceiver, IJBSucker {
     //*********************************************************************//
     // ---------------------------- constructor -------------------------- //
     //*********************************************************************//
-    constructor(
-        IJBDirectory directory,
-        IJBTokens tokens,
-        IJBPermissions permissions,
-        address peer,
-        JBAddToBalanceMode atbMode
-    ) JBPermissioned(permissions) {
+    constructor(IJBDirectory directory, IJBTokens tokens, IJBPermissions permissions, JBAddToBalanceMode atbMode)
+        JBPermissioned(permissions)
+    {
         DIRECTORY = directory;
         TOKENS = tokens;
-        PEER = peer == address(0) ? address(this) : peer;
         PROJECT_ID = 1; // TODO: fix this after we make a SuckerDeployer for CCIP /* IJBSuckerDeployer(msg.sender).TEMP_ID_STORE() */;
         DEPLOYER = msg.sender;
         ADD_TO_BALANCE_MODE = atbMode;
@@ -242,9 +234,7 @@ abstract contract JBSucker is JBPermissioned, ModifiedReceiver, IJBSucker {
         address origin = abi.decode(any2EvmMessage.sender, (address));
 
         // Make sure that the message came from our peer.
-        if (!_isRemotePeer(origin)) {
-            revert NOT_PEER();
-        }
+        if (origin != address(this)) revert NOT_PEER();
 
         // Increase the outstanding amount to be added to the project's balance by the amount being received.
         amountToAddToBalance[root.token] += root.amount;
@@ -461,10 +451,6 @@ abstract contract JBSucker is JBPermissioned, ModifiedReceiver, IJBSucker {
     function _sendRoot(uint256 transportPayment, address token, JBRemoteToken memory remoteToken, uint64 chainSelector)
         internal
         virtual;
-
-    /// @notice Checks if the `sender` (`msg.sender`) is a valid representative of the remote peer.
-    /// @param sender The message's sender.
-    function _isRemotePeer(address sender) internal virtual returns (bool valid);
 
     /// @notice Validates a leaf as being in the inbox merkle tree and registers the leaf as executed (to prevent double-spending).
     /// @dev Reverts if the leaf is invalid.

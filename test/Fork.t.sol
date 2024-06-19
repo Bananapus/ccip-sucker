@@ -59,8 +59,6 @@ contract CCIPSuckerFork is TestBaseWorkflow {
     IJBToken projectOneToken;
 
     function setUp() public override {
-        // address(0) == peer is the same as address(this) - this being the sucker itself
-        address peer = address(0);
         JBAddToBalanceMode atbMode = JBAddToBalanceMode.ON_CLAIM;
 
         string memory ETHEREUM_SEPOLIA_RPC_URL = vm.envString("RPC_ETHEREUM_SEPOLIA");
@@ -98,7 +96,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         super.setUp();
 
         // We deploy our first sucker
-        suckerGlobal = new JBCCIPSucker{salt: "SUCKER"}(jbDirectory(), jbTokens(), jbPermissions(), peer, atbMode);
+        suckerGlobal = new JBCCIPSucker{salt: "SUCKER"}(jbDirectory(), jbTokens(), jbPermissions(), atbMode);
 
         // setup permissions
         vm.startPrank(multisig());
@@ -207,9 +205,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         // We instead use this cheatcode to deploy what is essentially "Sucker Two" to the same address,
         // But on our other fork
         deployCodeTo(
-            "JBCCIPSucker.sol",
-            abi.encode(jbDirectory(), jbTokens(), jbPermissions(), peer, atbMode),
-            address(suckerGlobal)
+            "JBCCIPSucker.sol", abi.encode(jbDirectory(), jbTokens(), jbPermissions(), atbMode), address(suckerGlobal)
         );
 
         // set permissions

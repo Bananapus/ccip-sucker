@@ -38,13 +38,9 @@ contract JBCCIPSucker is JBSucker {
     // ---------------------------- constructor -------------------------- //
     //*********************************************************************//
 
-    constructor(
-        IJBDirectory directory,
-        IJBTokens tokens,
-        IJBPermissions permissions,
-        address peer,
-        JBAddToBalanceMode atbMode
-    ) JBSucker(directory, tokens, permissions, peer, atbMode) {}
+    constructor(IJBDirectory directory, IJBTokens tokens, IJBPermissions permissions, JBAddToBalanceMode atbMode)
+        JBSucker(directory, tokens, permissions, atbMode)
+    {}
 
     //*********************************************************************//
     // ------------------------ external views --------------------------- //
@@ -158,23 +154,5 @@ contract JBCCIPSucker is JBSucker {
             // Set the feeToken to a feeTokenAddress, indicating specific asset will be used for fees
             feeToken: _feeTokenAddress
         });
-    }
-
-    function getFeeForMessage(uint64 remoteSelector, Client.EVM2AnyMessage memory evm2AnyMessage)
-        external
-        view
-        returns (uint256 feeAmount)
-    {
-        // Initialize a router client instance to interact with cross-chain router
-        IRouterClient router = IRouterClient(this.getRouter());
-
-        // Get the fee required to send the CCIP message
-        return router.getFee({destinationChainSelector: remoteSelector, message: evm2AnyMessage});
-    }
-
-    /// @notice Checks if the `sender` (`msg.sender`) is a valid representative of the remote peer.
-    /// @param sender The message's sender.
-    function _isRemotePeer(address sender) internal override returns (bool valid) {
-        return sender == address(this);
     }
 }
