@@ -35,34 +35,36 @@ import {JBClaim} from "../src/structs/JBClaim.sol";
 import {JBLeaf} from "../src/structs/JBClaim.sol";
 import {MerkleLib} from "../src/utils/MerkleLib.sol";
 
-contract CCIPSuckerFork is TestBaseWorkflow {
-    uint8 private constant _WEIGHT_DECIMALS = 18; // FIXED
-    uint8 private constant _NATIVE_DECIMALS = 18; // FIXED
-    uint256 private constant _TEST_PRICE_PER_NATIVE = 100 * 10 ** 18; // 2000 test token == 1 native token
-    uint256 private _weight = 1000 * 10 ** _WEIGHT_DECIMALS;
+contract CCIPSuckerForkedTests is TestBaseWorkflow {
+    // CCIP Local Simulator Contracts
+    CCIPLocalSimulatorFork ccipLocalSimulatorFork;
+    BurnMintERC677Helper ccipBnM;
+    BurnMintERC677Helper ccipBnMArbSepolia;
 
-    JBRulesetMetadata private _metadata;
+    // Re-used parameters for project/ruleset/sucker setups
+    JBRulesetMetadata _metadata;
+    JBAddToBalanceMode atbMode = JBAddToBalanceMode.ON_CLAIM;
 
-    CCIPLocalSimulatorFork public ccipLocalSimulatorFork;
-    JBCCIPSucker public suckerGlobal;
-    BurnMintERC677Helper public ccipBnM;
-    BurnMintERC677Helper public ccipBnMArbSepolia;
-    address sender = makeAddr("rootSender");
-    /* bytes32 SALT = "SUCKER"; */
+    // Sucker and token
+    JBCCIPSucker suckerGlobal;
+    IJBToken projectOneToken;
 
+    // Chain ids and selectors
     uint256 sepoliaFork;
     uint256 arbSepoliaFork;
-
     uint64 arbSepoliaChainSelector = 3478487238524512106;
     uint64 ethSepoliaChainSelector = 16015286601757825753;
 
-    IJBToken projectOneToken;
+    // RPCs
+    string ETHEREUM_SEPOLIA_RPC_URL = vm.envString("RPC_ETHEREUM_SEPOLIA");
+    string ARBITRUM_SEPOLIA_RPC_URL = vm.envString("RPC_ARBITRUM_SEPOLIA");
 
-    function setUp() public override {
-        JBAddToBalanceMode atbMode = JBAddToBalanceMode.ON_CLAIM;
+    //*********************************************************************//
+    // ---------------------------- Setup parts -------------------------- //
+    //*********************************************************************//
 
-        string memory ETHEREUM_SEPOLIA_RPC_URL = vm.envString("RPC_ETHEREUM_SEPOLIA");
-        string memory ARBITRUM_SEPOLIA_RPC_URL = vm.envString("RPC_ARBITRUM_SEPOLIA");
+    function initL1AndUtils() public {
+        // Setup starts on sepolia fork
         sepoliaFork = vm.createSelectFork(ETHEREUM_SEPOLIA_RPC_URL);
 
         ccipLocalSimulatorFork = new CCIPLocalSimulatorFork();
@@ -72,7 +74,9 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         ccipBnM = BurnMintERC677Helper(sepoliaNetworkDetails.ccipBnMAddress);
         vm.label(address(ccipBnM), "bnmEthSep");
         vm.makePersistent(address(ccipBnM));
+    }
 
+    function initMetadata() public {
         _metadata = JBRulesetMetadata({
             reservedRate: JBConstants.MAX_RESERVED_RATE / 2, //50%
             redemptionRate: JBConstants.MAX_REDEMPTION_RATE, //50%
@@ -91,44 +95,22 @@ contract CCIPSuckerFork is TestBaseWorkflow {
             dataHook: address(0),
             metadata: 0
         });
+    }
 
-        // We run setup on our first fork (sepolia) so we have a JBV4 setup
-        super.setUp();
-
-        // We deploy our first sucker
-        suckerGlobal = new JBCCIPSucker{salt: "SUCKER"}(jbDirectory(), jbTokens(), jbPermissions(), atbMode);
-
-        // setup permissions
-        vm.startPrank(multisig());
-
-        // Allows the sucker to mint
-        uint256[] memory ids = new uint256[](1);
-        ids[0] = 9;
-
-        // permissions to set
-        JBPermissionsData memory perms =
-            JBPermissionsData({operator: address(suckerGlobal), projectId: 1, permissionIds: ids});
-
-        // Allows our sucker to mint
-        jbPermissions().setPermissionsFor(multisig(), perms);
-
+    function launchAndConfigureL1Project() public {
         // Setup: terminal / project
         // Package up the limits for the given terminal.
         JBFundAccessLimitGroup[] memory _fundAccessLimitGroup = new JBFundAccessLimitGroup[](1);
         {
             // Specify a payout limit.
             JBCurrencyAmount[] memory _payoutLimits = new JBCurrencyAmount[](1);
-            _payoutLimits[0] = JBCurrencyAmount({
-                amount: 10 * 10 ** _NATIVE_DECIMALS,
-                currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
-            });
+            _payoutLimits[0] =
+                JBCurrencyAmount({amount: 10 * 10 ** 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
 
             // Specify a surplus allowance.
             JBCurrencyAmount[] memory _surplusAllowances = new JBCurrencyAmount[](1);
-            _surplusAllowances[0] = JBCurrencyAmount({
-                amount: 5 * 10 ** _NATIVE_DECIMALS,
-                currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
-            });
+            _surplusAllowances[0] =
+                JBCurrencyAmount({amount: 5 * 10 ** 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
 
             _fundAccessLimitGroup[0] = JBFundAccessLimitGroup({
                 terminal: address(jbMultiTerminal()),
@@ -143,7 +125,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
             JBRulesetConfig[] memory _rulesetConfigurations = new JBRulesetConfig[](1);
             _rulesetConfigurations[0].mustStartAtOrAfter = 0;
             _rulesetConfigurations[0].duration = 0;
-            _rulesetConfigurations[0].weight = _weight;
+            _rulesetConfigurations[0].weight = 1000 * 10 ** 18;
             _rulesetConfigurations[0].decayRate = 0;
             _rulesetConfigurations[0].approvalHook = IJBRulesetApprovalHook(address(0));
             _rulesetConfigurations[0].metadata = _metadata;
@@ -159,7 +141,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
 
             // Create a first project to collect fees.
             jbController().launchProjectFor({
-                owner: multisig(), // Random.
+                owner: multisig(),
                 projectUri: "whatever",
                 rulesetConfigurations: _rulesetConfigurations,
                 terminalConfigurations: _terminalConfigurations, // Set terminals to receive fees.
@@ -170,7 +152,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
             projectOneToken = jbController().deployERC20For(1, "SuckerToken", "SOOK", bytes32(0));
 
             // Add a price-feed to reconcile pays and redeems with our test token
-            MockPriceFeed _priceFeedNativeTest = new MockPriceFeed(_TEST_PRICE_PER_NATIVE, 18);
+            MockPriceFeed _priceFeedNativeTest = new MockPriceFeed(100 * 10 ** 18, 18); // 2000 test token == 1 native token
             vm.label(address(_priceFeedNativeTest), "Mock Price Feed Native-ccipBnM");
 
             IJBPrices(jbPrices()).addPriceFeedFor({
@@ -180,43 +162,28 @@ contract CCIPSuckerFork is TestBaseWorkflow {
                 priceFeed: IJBPriceFeed(_priceFeedNativeTest)
             });
         }
+    }
 
-        // Setup: allow chains for our first sucker
-        uint64[] memory allowedChains = new uint64[](2);
-        allowedChains[0] = arbSepoliaChainSelector;
-        allowedChains[1] = ethSepoliaChainSelector;
-
-        // Sucker one now allows our forked chains
-        suckerGlobal.setAllowedChains(allowedChains);
-
-        vm.stopPrank();
-
+    function initL2AndUtils() public {
+        // Create and select our L2 fork- preparing to deploy our project and sucker
         arbSepoliaFork = vm.createSelectFork(ARBITRUM_SEPOLIA_RPC_URL);
 
-        // Get the corresponding remote token and label it
+        // Get the corresponding remote token and label it for convenience in reading any trace in console
         Register.NetworkDetails memory arbSepoliaNetworkDetails = ccipLocalSimulatorFork.getNetworkDetails(421614);
+
+        // This is a faux token helper provided to emulate token bridges of the burn and mint type via CCIP
         ccipBnMArbSepolia = BurnMintERC677Helper(arbSepoliaNetworkDetails.ccipBnMAddress);
         vm.label(address(ccipBnMArbSepolia), "bnmArbSep");
+    }
 
-        // Setup JBV4 on our second fork (arb-sep)
-        super.setUp();
-
-        // Since our sucker deploy address would differ (just in this particular context)
-        // We instead use this cheatcode to deploy what is essentially "Sucker Two" to the same address,
-        // But on our other fork
-        deployCodeTo(
-            "JBCCIPSucker.sol", abi.encode(jbDirectory(), jbTokens(), jbPermissions(), atbMode), address(suckerGlobal)
-        );
-
-        // set permissions
-        vm.startPrank(multisig());
-
+    function launchAndConfigureL2Project() public {
+        JBFundAccessLimitGroup[] memory _fundAccessLimitGroup = new JBFundAccessLimitGroup[](1);
         {
             // Package up the ruleset configuration.
             JBRulesetConfig[] memory _rulesetConfigurations = new JBRulesetConfig[](1);
             _rulesetConfigurations[0].mustStartAtOrAfter = 0;
             _rulesetConfigurations[0].duration = 0;
-            _rulesetConfigurations[0].weight = _weight;
+            _rulesetConfigurations[0].weight = 1000 * 10 ** 18;
             _rulesetConfigurations[0].decayRate = 0;
             _rulesetConfigurations[0].approvalHook = IJBRulesetApprovalHook(address(0));
             _rulesetConfigurations[0].metadata = _metadata;
@@ -232,33 +199,93 @@ contract CCIPSuckerFork is TestBaseWorkflow {
 
             // Create a first project to collect fees.
             jbController().launchProjectFor({
-                owner: multisig(), // Random.
+                owner: multisig(),
                 projectUri: "whatever",
                 rulesetConfigurations: _rulesetConfigurations,
                 terminalConfigurations: _terminalConfigurations, // Set terminals to receive fees.
                 memo: ""
             });
         }
-
-        jbPermissions().setPermissionsFor(multisig(), perms);
-
-        suckerGlobal.setAllowedChains(allowedChains);
-
-        vm.stopPrank();
-
-        // Switch back to sepolia (our L1 in this context) to begin testing
-        vm.selectFork(sepoliaFork);
     }
 
+    //*********************************************************************//
+    // ------------------------------- Setup ----------------------------- //
+    //*********************************************************************//
+
+    function setUp() public override {
+        // Create (and select) Sepolia fork and make simulator helper contracts persistent.
+        initL1AndUtils();
+
+        // Set metadata for the test projects to use.
+        initMetadata();
+
+        // run setup on our first fork (sepolia) so we have a JBV4 setup (deploys v4 contracts).
+        super.setUp();
+
+        // deploy our first sucker (on sepolia, the current fork, or "L1").
+        suckerGlobal = new JBCCIPSucker{salt: "SUCKER"}(jbDirectory(), jbTokens(), jbPermissions(), atbMode);
+
+        // In-memory vars needed for setup
+        // Allow the sucker to mint- This permission array is also used in second project config toward the end of this setup.
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = JBPermissionIds.MINT_TOKENS;
+
+        // Permissions data for setPermissionsFor().
+        JBPermissionsData memory perms =
+            JBPermissionsData({operator: address(suckerGlobal), projectId: 1, permissionIds: ids});
+
+        // Chain selectors of remote chains allowed by the suckers (bi-directional in this example).
+        uint64[] memory allowedChains = new uint64[](2);
+        allowedChains[0] = arbSepoliaChainSelector;
+        allowedChains[1] = ethSepoliaChainSelector;
+
+        // Allow our L1 sucker to mint.
+        vm.startPrank(multisig());
+        jbPermissions().setPermissionsFor(multisig(), perms);
+
+        // Launch and configure our project on L1 (selected fork is still sepolia).
+        launchAndConfigureL1Project();
+
+        // Sucker (on L1) now allows our intended chains and L1 setup is complete.
+        suckerGlobal.setAllowedChains(allowedChains);
+        vm.stopPrank();
+
+        // Init our L2 fork and CCIP Local simulator utils for L2.
+        initL2AndUtils();
+
+        // Setup JBV4 on our forked L2 (arb-sep).
+        super.setUp();
+
+        // Deploy the sucker on L2.
+        deployCodeTo(
+            "JBCCIPSucker.sol", abi.encode(jbDirectory(), jbTokens(), jbPermissions(), atbMode), address(suckerGlobal)
+        );
+
+        // Launch our project on L2.
+        launchAndConfigureL2Project();
+
+        // Allow the L2 sucker to mint.
+        vm.startPrank(multisig());
+        jbPermissions().setPermissionsFor(multisig(), perms);
+
+        // Enable intended chains for the L2 Sucker
+        suckerGlobal.setAllowedChains(allowedChains);
+        vm.stopPrank();
+    }
+
+    //*********************************************************************//
+    // ------------------------------- Tests ----------------------------- //
+    //*********************************************************************//
+
     function test_forkTokenTransfer() external {
-        // User that is transferring tokens
+        // Declare test actors and parameters
+        address rootSender = makeAddr("rootSender");
         address user = makeAddr("him");
-
-        // The amount we pay to the project
         uint256 amountToSend = 100;
+        uint256 maxRedeemed = amountToSend / 2;
 
-        // amount received after redemption
-        uint256 maxRedeemed = amountToSend / 2; // 50% Max redemption rate
+        // Select our L1 fork to begin this test.
+        vm.selectFork(sepoliaFork);
 
         // Give ourselves test tokens
         ccipBnM.drip(address(user));
@@ -279,7 +306,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         vm.startPrank(user);
         ccipBnM.approve(address(jbMultiTerminal()), amountToSend);
 
-        // We receive 500 project tokens as a result
+        // receive 500 project tokens as a result
         uint256 projectTokenAmount = jbMultiTerminal().pay(1, address(ccipBnM), amountToSend, user, 0, "", "");
 
         // Approve the sucker to use those project tokens received by the user (we are still pranked as user)
@@ -290,16 +317,15 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         vm.stopPrank();
 
         // Give the root sender some eth to pay the fees
-        // TODO: return excess amounts in JBCCIPSucker
-        vm.deal(sender, 1 ether);
+        vm.deal(rootSender, 1 ether);
 
         // Initiates the bridging
-        vm.prank(sender);
+        vm.prank(rootSender);
         suckerGlobal.toRemote{value: 1 ether}(address(ccipBnM), arbSepoliaChainSelector);
 
         // Fees are paid but balance isn't zero (excess msg.value is returned)
-        assert(sender.balance < 1 ether);
-        assert(sender.balance > 0);
+        assert(rootSender.balance < 1 ether);
+        assert(rootSender.balance > 0);
 
         // Use CCIP local to initiate the transfer on the L2
         ccipLocalSimulatorFork.switchChainAndRouteMessage(arbSepoliaFork);
@@ -312,8 +338,6 @@ contract CCIPSuckerFork is TestBaseWorkflow {
         JBInboxTreeRoot memory updatedInbox = suckerGlobal.getInbox(address(ccipBnMArbSepolia), ethSepoliaChainSelector);
         assertNotEq(updatedInbox.root, bytes32(0));
 
-        // TODO: claim and clean this up
-
         // Setup claim data
         JBLeaf memory _leaf = JBLeaf({
             index: 1,
@@ -322,6 +346,7 @@ contract CCIPSuckerFork is TestBaseWorkflow {
             terminalTokenAmount: maxRedeemed
         });
 
+        // faux proof data for test claim
         bytes32[32] memory _proof;
 
         JBClaim memory _claimData = JBClaim({
